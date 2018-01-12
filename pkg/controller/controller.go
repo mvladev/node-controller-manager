@@ -58,6 +58,7 @@ func NewController(
 	secretInformer coreinformers.SecretInformer,
 	nodeInformer coreinformers.NodeInformer,
 	awsMachineClassInformer nodeinformers.AWSMachineClassInformer,
+	azureMachineClassInformer nodeinformers.AzureMachineClassInformer,
 	machineInformer nodeinformers.MachineInformer,
 	machineSetInformer nodeinformers.MachineSetInformer,
 	machineDeploymentInformer nodeinformers.MachineDeploymentInformer,
@@ -94,6 +95,7 @@ func NewController(
 	// Controller listers
 	controller.secretLister = secretInformer.Lister()
 	controller.awsMachineClassLister = awsMachineClassInformer.Lister()
+	controller.azureMachineClassLister = azureMachineClassInformer.Lister()
 	controller.nodeLister = nodeInformer.Lister()
 	controller.machineLister = machineInformer.Lister()	
 	controller.machineSetLister = machineSetInformer.Lister()
@@ -102,6 +104,7 @@ func NewController(
 	// Controller syncs
 	controller.secretSynced = secretInformer.Informer().HasSynced
 	controller.awsMachineClassSynced = awsMachineClassInformer.Informer().HasSynced
+	controller.azureMachineClassSynced = azureMachineClassInformer.Informer().HasSynced
 	controller.nodeSynced = nodeInformer.Informer().HasSynced
 	controller.machineSynced = machineInformer.Informer().HasSynced
 	controller.machineSetSynced = machineSetInformer.Informer().HasSynced
@@ -119,6 +122,15 @@ func NewController(
 		UpdateFunc: controller.awsMachineClassUpdate,
 		DeleteFunc: controller.awsMachineClassDelete,
 	})
+
+	/*
+	// Azure Controller Informers
+	azureMachineClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.azureMachineClassAdd,
+		UpdateFunc: controller.azureMachineClassUpdate,
+		DeleteFunc: controller.azureMachineClassDelete,
+	})
+	*/
 
 	// Node Controller Informers
 	nodeInformer.Informer().AddEventHandler(
@@ -190,43 +202,45 @@ type Controller interface {
 
 // controller is a concrete Controller.
 type controller struct {
-	kubeClient 				kubernetes.Interface
-	nodeClient 				nodeclientset.MachineV1alpha1Interface
+	kubeClient					kubernetes.Interface
+	nodeClient 					nodeclientset.MachineV1alpha1Interface
 
 	// listers
-	secretLister    		 corelisters.SecretLister
-	nodeLister      		 corelisters.NodeLister
-	awsMachineClassLister 	 nodelisters.AWSMachineClassLister
-	machineLister  		 nodelisters.MachineLister
-	machineSetLister  		 nodelisters.MachineSetLister
-	machineDeploymentLister nodelisters.MachineDeploymentLister
+	secretLister 				corelisters.SecretLister
+	nodeLister 					corelisters.NodeLister
+	awsMachineClassLister 		nodelisters.AWSMachineClassLister
+	azureMachineClassLister 	nodelisters.AzureMachineClassLister
+	machineLister 				nodelisters.MachineLister
+	machineSetLister 			nodelisters.MachineSetLister
+	machineDeploymentLister 	nodelisters.MachineDeploymentLister
 	
-	recorder 				record.EventRecorder
+	recorder 					record.EventRecorder
 
 	// A TTLCache of pod creates/deletes each rc expects to see.
-	expectations    		*UIDTrackingControllerExpectations
+	expectations 				*UIDTrackingControllerExpectations
 
 	// Control Interfaces.
-	machineControl 		MachineControlInterface
-	machineSetControl      ISControlInterface
-
+	machineControl 				MachineControlInterface
+	machineSetControl 			ISControlInterface
 
 	// queues
-	secretQueue    			  workqueue.RateLimitingInterface
-	nodeQueue      			  workqueue.RateLimitingInterface
-	nodeToMachineQueue  	  workqueue.RateLimitingInterface
-	awsMachineClassQueue 	  workqueue.RateLimitingInterface
-	machineQueue  			  workqueue.RateLimitingInterface
-	machineSetQueue  		  workqueue.RateLimitingInterface
-	machineDeploymentQueue   workqueue.RateLimitingInterface
+	secretQueue 				workqueue.RateLimitingInterface
+	nodeQueue 					workqueue.RateLimitingInterface
+	nodeToMachineQueue 			workqueue.RateLimitingInterface
+	awsMachineClassQueue 		workqueue.RateLimitingInterface
+	azureMachineClassQueue 		workqueue.RateLimitingInterface
+	machineQueue 				workqueue.RateLimitingInterface
+	machineSetQueue 			workqueue.RateLimitingInterface
+	machineDeploymentQueue 		workqueue.RateLimitingInterface
 
 	// syncs
-	secretSynced    		  cache.InformerSynced
-	nodeSynced      		  cache.InformerSynced
-	awsMachineClassSynced 	  cache.InformerSynced
-	machineSynced  		  cache.InformerSynced
-	machineSetSynced  		  cache.InformerSynced
-	machineDeploymentSynced  cache.InformerSynced
+	secretSynced 				cache.InformerSynced
+	nodeSynced 					cache.InformerSynced
+	awsMachineClassSynced 		cache.InformerSynced
+	azureMachineClassSynced 	cache.InformerSynced
+	machineSynced 				cache.InformerSynced
+	machineSetSynced 			cache.InformerSynced
+	machineDeploymentSynced 	cache.InformerSynced
 }
 
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
@@ -247,6 +261,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 
 	for i := 0; i < workers; i++ {
 		createWorker(c.awsMachineClassQueue, "ClusterawsMachineClass", maxRetries, true, c.reconcileClusterawsMachineClassKey, stopCh, &waitGroup)
+		//createWorker(c.azureMachineClassQueue, "ClusterazureMachineClass", maxRetries, true, c.reconcileClusterazureMachineClassKey, stopCh, &waitGroup)
 		
 		createWorker(c.nodeQueue, "ClusterNode", maxRetries, true, c.reconcileClusterNodeKey, stopCh, &waitGroup)
 		

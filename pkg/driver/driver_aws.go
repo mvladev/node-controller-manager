@@ -32,7 +32,7 @@ import (
 )
 
 type AWSDriver struct {
-	AWSMachineClass   *v1alpha1.AWSMachineClass
+	AWSMachineClass    *v1alpha1.AWSMachineClass
 	CloudConfig		   *corev1.Secret
 	UserData 		   string
 	InstanceId		   string
@@ -40,27 +40,6 @@ type AWSDriver struct {
 
 func NewAWSDriver(create func() (string, error), delete func() error, existing func() (string, error)) Driver {
 	return &AWSDriver{}
-}
-
-// Helper function to create SVC
-func (d *AWSDriver) createSVC() *ec2.EC2 {
-
-    accessKeyID := strings.TrimSpace(string(d.CloudConfig.Data["providerAccessKeyId"]))
-    secretAccessKey := strings.TrimSpace(string(d.CloudConfig.Data["providerSecretAccessKey"]))
-
-    if accessKeyID != "" && secretAccessKey != "" {
-        return ec2.New(session.New(&aws.Config{
-            Region: aws.String(d.AWSMachineClass.Spec.AvailabilityZone),
-            Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
-                AccessKeyID: accessKeyID,
-                SecretAccessKey: secretAccessKey,
-            }),
-        }))
-    }
-
-    return ec2.New(session.New(&aws.Config{
-        Region: aws.String(d.AWSMachineClass.Spec.AvailabilityZone),
-    }))
 }
 
 // Create TODO
@@ -178,4 +157,25 @@ func (d *AWSDriver) Delete() error {
 func (d *AWSDriver) GetExisting() (string, error) {
 	//var dumbo v1alpha1.MachinePhase
 	return d.InstanceId, nil
+}
+
+// Helper function to create SVC
+func (d *AWSDriver) createSVC() *ec2.EC2 {
+
+    accessKeyID := strings.TrimSpace(string(d.CloudConfig.Data["providerAccessKeyId"]))
+    secretAccessKey := strings.TrimSpace(string(d.CloudConfig.Data["providerSecretAccessKey"]))
+
+    if accessKeyID != "" && secretAccessKey != "" {
+        return ec2.New(session.New(&aws.Config{
+            Region: aws.String(d.AWSMachineClass.Spec.AvailabilityZone),
+            Credentials: credentials.NewStaticCredentialsFromCreds(credentials.Value{
+                AccessKeyID: accessKeyID,
+                SecretAccessKey: secretAccessKey,
+            }),
+        }))
+    }
+
+    return ec2.New(session.New(&aws.Config{
+        Region: aws.String(d.AWSMachineClass.Spec.AvailabilityZone),
+    }))
 }

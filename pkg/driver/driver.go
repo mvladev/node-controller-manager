@@ -16,8 +16,8 @@ limitations under the License.
 package driver
 
 import (
-	v1alpha1 "github.com/gardener/node-controller-manager/pkg/apis/machine/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"github.com/gardener/node-controller-manager/pkg/apis/machine/v1alpha1"
 )
 
 //Driver is the common interface for creation/deletion of the VMs over different cloud-providers.
@@ -27,17 +27,26 @@ type Driver interface {
 	GetExisting() (string, error)
 }
 
-func NewDriver(instanceID string, class *v1alpha1.AWSMachineClass, secretRef *corev1.Secret, classKind string) Driver {
+func NewDriver(instanceID string, secretRef *corev1.Secret, classKind string, machineClass interface{}) Driver {
 
 	switch classKind {
-	case "AWSMachineClass":
-		return &AWSDriver{
-			AWSMachineClass: 	class,
-			CloudConfig: 		secretRef,
-			UserData: 			string(secretRef.Data["userData"]),
-			InstanceId: 		instanceID,
-		}
+		case "AWSMachineClass":
+			return &AWSDriver{
+				AWSMachineClass: 	machineClass.(*v1alpha1.AWSMachineClass),
+				CloudConfig: 		secretRef,
+				UserData: 			string(secretRef.Data["userData"]),
+				InstanceId: 		instanceID,
+			}
+		
+		case "AzureMachineClass":
+			return &AzureDriver{
+				AzureMachineClass: 	&v1alpha1.AWSMachineClass{},
+				CloudConfig: 		secretRef,
+				UserData: 			"TBD",
+				InstanceId: 		instanceID,
+			}
 	}
+
 	return NewFakeDriver(
 		func() (string, string, error) {
 			return "fake", "fake_ip", nil
@@ -47,5 +56,6 @@ func NewDriver(instanceID string, class *v1alpha1.AWSMachineClass, secretRef *co
 		},
 		func() (string, error) {
 			return "fake", nil
-		})
+		},
+	)
 }
